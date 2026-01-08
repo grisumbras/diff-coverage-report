@@ -1,0 +1,48 @@
+name: Run and build with coverage
+description: Build the project
+
+inputs:
+  path:
+    description: Path to project root
+    required: true
+    default: ''
+  repository:
+    description: Repository that is being built
+    required: true
+    default: ''
+  ref:
+    description: Git ref of the state of the project being built
+    required: true
+    default: ''
+  commit:
+    description: Git commit of the state of the project being built
+    required: true
+    default: ''
+  targets:
+    description: B2 targets to build (separated by spaces)
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup environment variables
+      shell: bash
+      run: |
+        set -ex
+        export LCOV_BRANCH_COVERAGE=0
+        export B2_TOOLSET=gcc-14
+        export CXX=g++-14
+        export B2_CI_VERSION=1
+        export B2_CXXSTD=20
+        export B2_VARIANT=debug
+        export B2_TARGETS=${{ github.targets }}
+        export B2_FLAGS="link=shared cxxflags=-fkeep-static-functions cxxflags=--coverage linkflags=--coverage"
+        export DRONE_BUILD_EVENT=${{ github.event_name }}
+        export DRONE_JOB_BUILDTYPE=boost
+        export DRONE_COMMIT=${{ github.sha }}
+        export DRONE_BRANCH=${{ inputs.ref }}
+        export DRONE_REPO=${{ inputs.repo }}
+
+        cd ${{ inputs.path }}
+        . .drone/drone.sh

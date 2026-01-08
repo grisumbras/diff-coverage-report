@@ -1,0 +1,119 @@
+name: CI
+
+on:
+  push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch head
+        uses: actions/checkout@v5
+
+      - id: fetch-target
+        name: Fetch Boost.JSON target
+        uses: actions/checkout@v5
+        with:
+          repository: 'boostorg/json'
+          ref: 4c97cd0ff39c453043cf1b474bdbcacb1979d0f0
+          path: target/root
+
+      - name: Build target
+        uses: ./.github/actions/build
+        with:
+          path: target/root
+          repository: booostorg/json
+          ref: ${{ steps.fetch-target.outputs.ref }}
+          commit: ${{ steps.fetch-target.outputs.commit }}
+          targets: libs/json/test
+
+      - id: fetch-baseline
+        name: Fetch Boost.JSON baseline
+        uses: actions/checkout@v5
+        with:
+          repository: 'boostorg/json'
+          ref: develop
+          path: base/root
+
+      - name: Build baseline
+        uses: ./.github/actions/build
+        with:
+          path: base/root
+          repository: booostorg/json
+          ref: ${{ steps.fetch-baseline.outputs.ref }}
+          commit: ${{ steps.fetch-baseline.outputs.commit }}
+          targets: libs/json/test
+
+      - name: Collect coverage
+        run: |
+          set -ex
+
+          sudo apt install lcov
+
+          lcov --rc branch_coverage=0 --rc geninfo_unexecuted_blocks=1 \
+            --gcov-tool=gcov-14 --capture --initial --directory base/boost-root/bin.v2/libs/json \
+            --output-file base/zero.info
+          lcov --rc branch_coverage=0 --rc geninfo_unexecuted_blocks=1 \
+            --gcov-tool=gcov-14 --capture --directory base/boost-root/bin.v2/libs/json \
+            --output-file base/run.info
+          lcov -a base/zero.info -a base/run.info --output-file base/all.info
+          lcov --extract base/all.info '*/json/*' --output-file base/filter1.info
+          lcov --remove base/filter1.info '*/json/test/*' '*/json/bench/*' \
+            '*/json/example/*' --output-file base/filter2.info
+
+          lcov --rc branch_coverage=0 --rc geninfo_unexecuted_blocks=1 \
+            --gcov-tool=gcov-14 --capture --initial --directory target/boost-root/bin.v2/libs/json \
+            --output-file target/zero.info
+          lcov --rc branch_coverage=0 --rc geninfo_unexecuted_blocks=1 \
+            --gcov-tool=gcov-14 --capture --directory target/boost-root/bin.v2/libs/json \
+            --output-file target/run.info
+          lcov -a target/zero.info -a target/run.info --output-file target/all.info
+          lcov --extract target/all.info '*/json/*' --output-file target/filter1.info
+          lcov --remove target/filter1.info '*/json/test/*' '*/json/bench/*' \
+            '*/json/example/*' --output-file target/filter2.info
+
+          git diff -U0 --no-indent-heuristic --minimal \
+            base/boost-root/libs/json target/boost-root/libs/json >diff
+
+          ./diff-coverage-report.py -O pages -S target/boost-root/libs/json \
+            -B base/filter2.info -T target/filter2.info -D diff \
+            -P $PWD/base/boost-root/boost $PWD/target/boost-root/libs/json/include/boost \
+               $PWD/target/boost-root/boost $PWD/target/boost-root/libs/json/include/boost \
+               $PWD/base/boost-root $PWD/target/boost-root \
+               1/base/boost-root $PWD/target/boost-root \
+               2/target/boost-root $PWD/target/boost-root
+
+      - name: Save coverage info
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            base/filter2.info
+            target/filter2.info
+            diff
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
+      - name: Upload result as an artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages/
+
+  deploy:
+    needs: build
+
+    permissions:
+      pages: write
+      id-token: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
