@@ -1,0 +1,217 @@
+{%- macro coverage_kind(kind, loop=None, data=kind) -%}
+<t{{ 'h' if data == kind else 'd' }} class="coverage-kind coverage-{{kind if data else ''}}"
+    {%- if kind and data %} title="
+      {%- if kind == 'UNC' -%}
+        Uncovered New Code (+ => 0):
+Newly added code is not tested
+      {%- elif kind == 'LBC' -%}
+        Lost Baseline Coverage (1 => 0):
+Unchanged code is no longer tested
+      {%- elif kind == 'UIC' -%}
+        Uncovered Included Code (# => 0):
+Previously unused code is untested
+      {%- elif kind == 'UBC' -%}
+        Uncovered Baseline Code (0 => 0):
+Unchanged code was untested before, is untested now
+      {%- elif kind == 'GBC' -%}
+        Gained Baseline Coverage (0 => 1):
+Unchanged code is tested now
+      {%- elif kind == 'GIC' -%}
+        Gained Included Coverage (# => 1):
+Previously unused code is tested now
+      {%- elif kind == 'GNC' -%}
+        Gained New Coverage (+ => 1):
+Newly added code is tested
+      {%- elif kind == 'CBC' -%}
+        Covered Baseline Code (1 => 1):
+Unchanged code was tested before and is still tested
+      {%- elif kind == 'EUB' -%}
+        Excluded Uncovered Baseline (0 => #):
+Previously untested code is unused now
+      {%- elif kind == 'ECB' -%}
+        Excluded Covered Baseline (1 => #):
+Previously tested code is unused now
+      {%- elif kind == 'DUB' -%}
+        Deleted Uncovered Baseline (0 => -):
+Previously untested code has been deleted
+      {%- elif kind == 'DCB' -%}
+        Deleted Covered Baseline (1 => -):
+Previously tested code has been deleted
+      {%- endif -%}>
+    "{%- endif %}>
+  {%- if (not loop) or loop.changed(kind) -%}
+    {{ data }}
+  {%- endif -%}
+</t{{ 'h' if data == kind else 'd' }}>
+{% endmacro -%}
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Diff coverage for {{ file.source_path }}</title>
+    <link type="text/css" rel="stylesheet" href="{{ file.stylesheet }}"/>
+    <style>
+        .boostlook main { margin-top: 1.5rem; }
+        .boostlook .coverage-summary { min-width: 50%; }
+        .boostlook .coverage-summary thead th { text-align: center; }
+        .boostlook .coverage-summary tbody th { text-align: right; }
+        .boostlook .coverage-summary td { text-align: center; }
+
+        .boostlook .line-comparison { border-spacing: 0; }
+        .boostlook .line-comparison td, .boostlook .line-comparison pre,
+        .boostlook .line-comparison th {
+          padding: 0;
+          margin: 0;
+          border: 0;
+        }
+        .boostlook .line-comparison th {
+          padding-left: var(--spacing-size-2xs);
+          padding-right: var(--spacing-size-4xs);
+        }
+        .boostlook .line-comparison .coverage-kind {
+          min-width: 2rem;
+          padding-right: var(--spacing-size-2xs);
+        }
+        .boostlook .line-comparison .diff-action {
+          min-width: var(--spacing-size-xs);
+          font-family: var(--font-family-code);
+          text-align: center;
+        }
+        .boostlook .line-comparison .diff-action.diff-modify {
+          background-color: var(--colors-code-colors-yellow);
+        }
+        .boostlook .line-comparison .diff-action.diff-add {
+          background-color: var(--colors-code-colors-green);
+        }
+        .boostlook .line-comparison .diff-action.diff-remove {
+          background-color: var(--colors-code-colors-red);
+        }
+        .boostlook .line-comparison th a { color: var(--text-main-text-primary); }
+        .boostlook table.line-comparison { font-size: var(--font-size-xs); }
+        .boostlook .line-comparison .coverage-none {
+          color: var(--colors-neutral-500);
+        }
+        .boostlook .line-comparison .coverage-UNC pre,
+        .boostlook .line-comparison .coverage-UNC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-UNC {
+          background-color: #FF6230 !important;
+        }
+        .boostlook .line-comparison .coverage-LBC pre,
+        .boostlook .line-comparison .coverage-LBC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-LBC {
+          background-color: #CC6666 !important;
+        }
+        .boostlook .line-comparison .coverage-UIC pre,
+        .boostlook .line-comparison .coverage-UIC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-UIC {
+          background-color: #EEAA30 !important;
+        }
+        .boostlook .line-comparison .coverage-UBC pre,
+        .boostlook .line-comparison .coverage-UBC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-UBC {
+          background-color: #FDE007 !important;
+        }
+        .boostlook .line-comparison .coverage-GBC pre,
+        .boostlook .line-comparison .coverage-GBC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-GBC {
+          background-color: #448844 !important;
+        }
+        .boostlook .line-comparison .coverage-GIC pre,
+        .boostlook .line-comparison .coverage-GIC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-GIC {
+          background-color: #30CC37 !important;
+        }
+        .boostlook .line-comparison .coverage-GNC pre,
+        .boostlook .line-comparison .coverage-GNC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-GNC {
+          background-color: #B5F7AF !important;
+        }
+        .boostlook .line-comparison .coverage-CBC pre,
+        .boostlook .line-comparison .coverage-CBC th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-CBC {
+          background-color: #CAD7FE !important;
+        }
+        .boostlook .line-comparison .coverage-EUB pre,
+        .boostlook .line-comparison .coverage-EUB th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-EUB {
+          background-color: #DDDDDD !important;
+        }
+        .boostlook .line-comparison .coverage-ECB pre,
+        .boostlook .line-comparison .coverage-ECB th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-ECB {
+          background-color: #CC66FF !important;
+        }
+        .boostlook .line-comparison .coverage-DUB pre,
+        .boostlook .line-comparison .coverage-DUB th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-DUB {
+          background-color: grey !important;
+        }
+        .boostlook .line-comparison .coverage-DCB pre,
+        .boostlook .line-comparison .coverage-DCB th.coverage-kind,
+        .boostlook .coverage-summary  .coverage-kind.coverage-DCB {
+          background-color: pink !important;
+        }
+      </style>
+    </head>
+  <body>
+    <div class="boostlook">
+      <header>
+        <h1>
+          Diff coverage report for<br/>
+          <nav>
+            {% for d in file.ancestors -%}
+               <a href="{{ file.relative_path(d) }}">{{ d.basename or '.' }}</a>/
+            {%- endfor -%}
+            {{ file.basename or '.' }}
+          </nav>
+        </h1>
+        <table class="coverage-summary">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Coverage</th>
+              <th>Total</th>
+              <th>Misses</th>
+              {{ coverage_kind('UNC') }}
+              {{ coverage_kind('LBC') }}
+              {{ coverage_kind('UIC') }}
+              {{ coverage_kind('UBC') }}
+              {{ coverage_kind('GBC') }}
+              {{ coverage_kind('GIC') }}
+              {{ coverage_kind('GNC') }}
+              {{ coverage_kind('CBC') }}
+              {{ coverage_kind('EUB') }}
+              {{ coverage_kind('ECB') }}
+              {{ coverage_kind('DUB') }}
+              {{ coverage_kind('DCB') }}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Lines</th>
+              <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
+              <td>{{ file.lines.total_count }}</td>
+              <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
+              <td>{% if file.lines.UNC %}<a>{{ file.lines.UNC }}</a>{% endif %}</td>
+              <td>{% if file.lines.LBC %}<a>{{ file.lines.LBC }}</a>{% endif %}</td>
+              <td>{% if file.lines.UIC %}<a>{{ file.lines.UIC }}</a>{% endif %}</td>
+              <td>{% if file.lines.UBC %}<a>{{ file.lines.UBC }}</a>{% endif %}</td>
+              <td>{% if file.lines.GBC %}<a>{{ file.lines.GBC }}</a>{% endif %}</td>
+              <td>{% if file.lines.GIC %}<a>{{ file.lines.GIC }}</a>{% endif %}</td>
+              <td>{% if file.lines.GNC %}<a>{{ file.lines.GNC }}</a>{% endif %}</td>
+              <td>{% if file.lines.CBC %}<a>{{ file.lines.CBC }}</a>{% endif %}</td>
+              <td>{% if file.lines.EUB %}<a>{{ file.lines.EUB }}</a>{% endif %}</td>
+              <td>{% if file.lines.ECB %}<a>{{ file.lines.ECB }}</a>{% endif %}</td>
+              <td>{% if file.lines.DUB %}<a>{{ file.lines.DUB }}</a>{% endif %}</td>
+              <td>{% if file.lines.DCB %}<a>{{ file.lines.DCB }}</a>{% endif %}</td>
+            </tr>
+          </tbody>
+        </table>
+      </header>
+      <main>
+        {% block main %}{% endblock %}
+      </main>
+    </div>
+  <body>
+<html>

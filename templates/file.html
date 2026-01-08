@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block main %}
+<table class='line-comparison'>
+  <tbody>
+    {% set ns = namespace(kind='') -%}
+    {% for n1, t1, c1, n2, t2, c2, a, k in lines %}
+    <tr class="coverage-{{k}}">
+      {% if k %}{% set ns.kind = k %}{% endif -%}
+      {% if n1 %}<th><a href="#OL{{ n1 }}">{{ n1 }}</a></th>
+      {%- else %}<td></td>{% endif %}
+      {% if a == 'm' -%}
+        <td class="diff-action diff-modify">-</td>
+      {%- elif a == 'r' -%}
+        <td class="diff-action diff-remove">-</td>
+      {%- else -%}
+        <td class="diff-action">&nbsp;</td>
+      {%- endif %}
+      <td{%- if c1 == -1 %} class="coverage-none"
+         {%- elif c1 == 0 %} class="coverage-miss"
+         {%- elif c1 > 0 %} class="coverage-hit"
+      {%- endif %}><pre>{{ t1 }}</pre></td>
+      {% if n2 %}<th><a href="#NL{{ n2 }}">{{ n2 }}</a></th>
+      {%- else %}<td></td>{% endif %}
+      {% if a == 'm' -%}
+        <td class="diff-action diff-modify">+</td>
+      {%- elif a == 'a' -%}
+        <td class="diff-action diff-add">+</td>
+      {%- else -%}
+        <td class="diff-action">&nbsp;</td>
+      {%- endif %}
+      <td{%- if c2 == -1 %} class="coverage-none"
+         {%- elif c2 == 0 %} class="coverage-miss"
+         {%- elif c2 > 0 %} class="coverage-hit"
+      {%- endif %}><pre>{{ t2 }}</pre></td>
+      {{ coverage_kind(ns.kind, loop) }}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

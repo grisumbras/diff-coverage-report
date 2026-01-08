@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block main %}
+<table class='file-comparison coverage-summary'>
+  <thead>
+    <tr>
+      <th>Child</th>
+      <th>Rate</th>
+      <th>Total</th>
+      <th>Misses</th>
+      {{ coverage_kind('UNC') }}
+      {{ coverage_kind('LBC') }}
+      {{ coverage_kind('UIC') }}
+      {{ coverage_kind('UBC') }}
+      {{ coverage_kind('GBC') }}
+      {{ coverage_kind('GIC') }}
+      {{ coverage_kind('GNC') }}
+      {{ coverage_kind('CBC') }}
+      {{ coverage_kind('EUB') }}
+      {{ coverage_kind('ECB') }}
+      {{ coverage_kind('DUB') }}
+      {{ coverage_kind('DCB') }}
+    <tr>
+  </thead>
+  <tbody>
+    {% for c in file.children %}
+    <tr>
+      <th><a href='{{ file.relative_path(c) }}'>{{ c.basename }}</a></th>
+      <td>{{ "%.2f" | format(c.lines.total_hits / c.lines.total_count * 100) }}%</td>
+      <td>{{ c.lines.total_count }}</td>
+      <td>{{ c.lines.total_count - c.lines.total_hits }}</td>
+      {{ coverage_kind('UNC', data=c.lines.UNC or '') }}
+      {{ coverage_kind('LBC', data=c.lines.LBC or '') }}
+      {{ coverage_kind('UIC', data=c.lines.UIC or '') }}
+      {{ coverage_kind('UBC', data=c.lines.UBC or '') }}
+      {{ coverage_kind('GBC', data=c.lines.GBC or '') }}
+      {{ coverage_kind('GIC', data=c.lines.GIC or '') }}
+      {{ coverage_kind('GNC', data=c.lines.GNC or '') }}
+      {{ coverage_kind('CBC', data=c.lines.CBC or '') }}
+      {{ coverage_kind('EUB', data=c.lines.EUB or '') }}
+      {{ coverage_kind('ECB', data=c.lines.ECB or '') }}
+      {{ coverage_kind('DUB', data=c.lines.DUB or '') }}
+      {{ coverage_kind('DCB', data=c.lines.DCB or '') }}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}
