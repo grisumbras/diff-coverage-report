@@ -26,7 +26,7 @@ jobs:
           repository: booostorg/json
           ref: ${{ steps.fetch-target.outputs.ref }}
           commit: ${{ steps.fetch-target.outputs.commit }}
-          targets: libs/json/test
+          targets: libs/json/test libs/json/example libs/json/bench
 
       - id: fetch-baseline
         name: Fetch Boost.JSON baseline
@@ -43,7 +43,7 @@ jobs:
           repository: booostorg/json
           ref: ${{ steps.fetch-baseline.outputs.ref }}
           commit: ${{ steps.fetch-baseline.outputs.commit }}
-          targets: libs/json/test
+          targets: libs/json/test libs/json/example libs/json/bench
 
       - name: Collect coverage
         run: |
@@ -73,16 +73,16 @@ jobs:
           lcov --remove target/filter1.info '*/json/test/*' '*/json/bench/*' \
             '*/json/example/*' --output-file target/filter2.info
 
-          git diff -U0 --no-indent-heuristic --minimal \
-            base/boost-root/libs/json target/boost-root/libs/json >diff
+          git diff -U0 --no-indent-heuristic --minimal --no-index \
+            base/boost-root/libs/json target/boost-root/libs/json | tee diff
 
           ./diff-coverage-report.py -O pages -S target/boost-root/libs/json \
             -B base/filter2.info -T target/filter2.info -D diff \
             -P $PWD/base/boost-root/boost $PWD/target/boost-root/libs/json/include/boost \
                $PWD/target/boost-root/boost $PWD/target/boost-root/libs/json/include/boost \
                $PWD/base/boost-root $PWD/target/boost-root \
-               1/base/boost-root $PWD/target/boost-root \
-               2/target/boost-root $PWD/target/boost-root
+               a/base/boost-root $PWD/target/boost-root \
+               b/target/boost-root $PWD/target/boost-root
 
       - name: Save coverage info
         uses: actions/upload-artifact@v4

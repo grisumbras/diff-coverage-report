@@ -238,6 +238,11 @@ def parse_diff(lines, result, source_dir, prefix_map):
         elif l.startswith('+++ '):
             _, new_file = l.split(' ', 1)
             new_file = fix_path(new_file.rstrip(), prefix_map)
+            if old_file != new_file:
+                if old_file == '/dev/null':
+                    old_file = new_file
+                elif new_file == '/dev/null':
+                    new_file = old_file
             assert old_file == new_file
 
             file_data = result.get(new_file)
@@ -249,8 +254,18 @@ def parse_diff(lines, result, source_dir, prefix_map):
             _, old_range, new_range, _ = l.split(' ', 3)
             assert old_range[0] == '-'
             assert new_range[0] == '+'
-            old_line, old_count = [int(x) for x in old_range[1:].split(',')]
-            new_line, new_count = [int(x) for x in new_range[1:].split(',')]
+            old_range = [int(x) for x in old_range[1:].split(',')]
+            if len(old_range) > 1:
+                old_line, old_count = old_range
+            else:
+                old_line = old_range[0]
+                old_count = 1
+            new_range = [int(x) for x in new_range[1:].split(',')]
+            if len(new_range) > 1:
+                new_line, new_count = new_range
+            else:
+                new_line = new_range[0]
+                new_count = 1
 
         elif l.startswith(' '):
             old_line += 1

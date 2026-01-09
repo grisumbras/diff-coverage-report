@@ -36,13 +36,13 @@ runs:
         export B2_CI_VERSION=1
         export B2_CXXSTD=20
         export B2_VARIANT=debug
-        export B2_TARGETS=${{ github.targets }}
+        export B2_TARGETS="${{ inputs.targets }}"
         export B2_FLAGS="link=shared cxxflags=-fkeep-static-functions cxxflags=--coverage linkflags=--coverage"
-        export DRONE_BUILD_EVENT=${{ github.event_name }}
+        export DRONE_BUILD_EVENT="${{ github.event_name }}"
         export DRONE_JOB_BUILDTYPE=boost
-        export DRONE_COMMIT=${{ github.sha }}
-        export DRONE_BRANCH=${{ inputs.ref }}
-        export DRONE_REPO=${{ inputs.repo }}
+        export DRONE_COMMIT="${{ github.sha }}"
+        export DRONE_BRANCH="${{ inputs.ref }}"
+        export DRONE_REPO="${{ inputs.repo }}"
 
         cd ${{ inputs.path }}
         . .drone/drone.sh
