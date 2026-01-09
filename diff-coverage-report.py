@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 import argparse
-from io import IOBase
-from re import S
+import itertools
+import io
 import jinja2
 import os
 import os.path
@@ -14,15 +14,16 @@ def main(argv):
     args = parse_args(argv)
 
     source_dir = os.path.abspath(args.source_dir)
+    prefix_map = list(itertools.batched(args.map_prefix or [], 2))
 
     with open(args.target_info, 'r') as f:
-        files = parse_tracefile(f, source_dir)
+        files = parse_tracefile(f, source_dir, prefix_map)
 
     with open(args.base_info, 'r') as f:
-        files = parse_tracefile(f, source_dir, files)
+        files = parse_tracefile(f, source_dir, prefix_map, files)
 
     with open(args.diff, 'r') as f:
-        files = parse_diff(f, files, source_dir)
+        files = parse_diff(f, files, source_dir, prefix_map)
 
     dirs = collect_directories(files, source_dir)
 
@@ -91,10 +92,14 @@ def parse_args(argv):
     parser.add_argument(
         '-O', '--output-dir', default=os.getcwd(), help=f'Output directory',
     )
+    parser.add_argument(
+        '-P', '--map-prefix', nargs='*', help=f'Output directory',
+    )
+
     return parser.parse_args(argv[1:])
 
 
-def parse_tracefile(lines, source_dir, files=None):
+def parse_tracefile(lines, source_dir, prefix_map, files=None):
     is_base = files is not None
     if not is_base:
         files = {}
@@ -112,7 +117,7 @@ def parse_tracefile(lines, source_dir, files=None):
 
         if directive == 'SF':
             assert cur_file is None
-            cur_file = FileData(parts[1], source_dir)
+            cur_file = FileData(fix_path(parts[1], prefix_map), source_dir)
 
         elif directive == 'FNL':
             assert cur_file is not None
@@ -203,7 +208,7 @@ def parse_tracefile(lines, source_dir, files=None):
     return files
 
 
-def parse_diff(lines, result, source_dir):
+def parse_diff(lines, result, source_dir, prefix_map):
     old_file = None
     new_file = None
     file_data = None
@@ -228,11 +233,11 @@ def parse_diff(lines, result, source_dir):
             new_line = -1
 
             _, old_file = l.split(' ', 1)
-            old_file = fix_path(old_file.rstrip())
+            old_file = fix_path(old_file.rstrip(), prefix_map)
 
         elif l.startswith('+++ '):
             _, new_file = l.split(' ', 1)
-            new_file = fix_path(new_file.rstrip())
+            new_file = fix_path(new_file.rstrip(), prefix_map)
             assert old_file == new_file
 
             file_data = result.get(new_file)
@@ -314,11 +319,12 @@ def collect_directories(files, source_dir):
     return dirs.values()
 
 
-def fix_path(path: str) -> str:
-    if os.path.isabs(path):
-        return path
-    else:
-        return os.sep.join(path.split(os.sep, 1)[1:])
+def fix_path(path: str, prefix_map) -> str:
+    for src, tgt in prefix_map:
+        if path.startswith(src):
+            path = tgt + path[len(src):]
+            break
+    return path
 
 
 def path_suffix(path: str, source_dir: str) -> str:
@@ -408,7 +414,7 @@ class FileData(FsItemData):
     def output_path(self):
         return self.source_path + '.html'
 
-    def calc(self, text: IOBase):
+    def calc(self, text: io.IOBase):
         assert self.base
         result = []
         diff = DiffedLines(text, self)
@@ -598,7 +604,7 @@ class LineDataCollection(LineDataSummary, list):
 
 
 class DiffedLines():
-    def __init__(self, lines: IOBase, data: FileData):
+    def __init__(self, lines: io.IOBase, data: FileData):
         self.lines = lines
         self.data = data
 
