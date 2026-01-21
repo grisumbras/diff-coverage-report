@@ -1,47 +1,47 @@
-{%- macro coverage_kind(kind, loop=None, data=kind) -%}
-<t{{ 'h' if data == kind else 'd' }} class="coverage-kind coverage-{{kind if data else ''}}"
-    {%- if kind and data %} title="
-      {%- if kind == 'UNC' -%}
+{%- macro coverage_hint(kind) -%}
+    {%- if kind == 'UNC' -%}
         Uncovered New Code (+ => 0):
 Newly added code is not tested
-      {%- elif kind == 'LBC' -%}
+    {%- elif kind == 'LBC' -%}
         Lost Baseline Coverage (1 => 0):
 Unchanged code is no longer tested
-      {%- elif kind == 'UIC' -%}
+    {%- elif kind == 'UIC' -%}
         Uncovered Included Code (# => 0):
 Previously unused code is untested
-      {%- elif kind == 'UBC' -%}
+    {%- elif kind == 'UBC' -%}
         Uncovered Baseline Code (0 => 0):
 Unchanged code was untested before, is untested now
-      {%- elif kind == 'GBC' -%}
+    {%- elif kind == 'GBC' -%}
         Gained Baseline Coverage (0 => 1):
 Unchanged code is tested now
-      {%- elif kind == 'GIC' -%}
+    {%- elif kind == 'GIC' -%}
         Gained Included Coverage (# => 1):
 Previously unused code is tested now
-      {%- elif kind == 'GNC' -%}
+    {%- elif kind == 'GNC' -%}
         Gained New Coverage (+ => 1):
 Newly added code is tested
-      {%- elif kind == 'CBC' -%}
+    {%- elif kind == 'CBC' -%}
         Covered Baseline Code (1 => 1):
 Unchanged code was tested before and is still tested
-      {%- elif kind == 'EUB' -%}
+    {%- elif kind == 'EUB' -%}
         Excluded Uncovered Baseline (0 => #):
 Previously untested code is unused now
-      {%- elif kind == 'ECB' -%}
+    {%- elif kind == 'ECB' -%}
         Excluded Covered Baseline (1 => #):
 Previously tested code is unused now
-      {%- elif kind == 'DUB' -%}
+    {%- elif kind == 'DUB' -%}
         Deleted Uncovered Baseline (0 => -):
 Previously untested code has been deleted
-      {%- elif kind == 'DCB' -%}
+    {%- elif kind == 'DCB' -%}
         Deleted Covered Baseline (1 => -):
 Previously tested code has been deleted
-      {%- endif -%}>
-    "{%- endif %}>
-  {%- if (not loop) or loop.changed(kind) -%}
-    {{ data }}
-  {%- endif -%}
+    {%- endif -%}
+{%- endmacro -%}
+
+{%- macro coverage_kind(kind, data=kind) -%}
+<t{{ 'h' if data == kind else 'd' }} class="coverage-kind coverage-{{kind if data else ''}}"
+  {%- if kind and data %} title="{{ coverage_hint(kind) }}"{% endif %}>
+  {{ data }}
 </t{{ 'h' if data == kind else 'd' }}>
 {% endmacro -%}
 
@@ -49,14 +49,33 @@ Previously tested code has been deleted
 <html>
   <head>
     <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta class="meta-theme" name="theme-color" content="#FAFAFA" data-dark="#18181B" data-light="#FAFAFA">
+    <meta class="meta-theme" name="color-scheme" content="light" data-dark="dark" data-light="light">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
     <title>Diff coverage for {{ file.source_path }}</title>
     <link type="text/css" rel="stylesheet" href="{{ file.stylesheet }}"/>
     <style>
+        body {
+            background: var(--surface-background-main-base-primary, #fff);
+        }
+        #user-settings { float: right; clear: both; }
+        #header { max-width: var(--main-content-width); }
+        #header h1 { margin-right: 2rem; }
+        #header i { color: var(--text-main-text-body-primary, #2a2c30); }
         .boostlook main { margin-top: 1.5rem; }
-        .boostlook .coverage-summary { min-width: 50%; }
-        .boostlook .coverage-summary thead th { text-align: center; }
-        .boostlook .coverage-summary tbody th { text-align: right; }
-        .boostlook .coverage-summary td { text-align: center; }
+        .boostlook #content table.tableblock.coverage-summary { min-width: 50%; }
+        .boostlook #content table.tableblock.coverage-summary thead th { text-align: center; }
+        .boostlook #content table.tableblock.coverage-summary tbody th { text-align: right; }
+        .boostlook #content table.tableblock.coverage-summary td { text-align: center; }
+        .basic-coverage .boostlook #content table.tableblock tr.row-coverage-advanced { display:none; }
+        .advanced-coverage .boostlook #content table.tableblock tr.row-coverage-basic { display:none; }
 
         .boostlook .line-comparison { border-spacing: 0; }
         .boostlook .line-comparison td, .boostlook .line-comparison pre,
@@ -92,71 +111,114 @@ Previously tested code has been deleted
         .boostlook .line-comparison .coverage-none {
           color: var(--colors-neutral-500);
         }
-        .boostlook .line-comparison .coverage-UNC pre,
-        .boostlook .line-comparison .coverage-UNC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-UNC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-UNC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-UNC {
-          background-color: #FF6230 !important;
+          background-color: var(--colors-negative-600) !important;
         }
-        .boostlook .line-comparison .coverage-LBC pre,
-        .boostlook .line-comparison .coverage-LBC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-LBC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-LBC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-LBC {
-          background-color: #CC6666 !important;
+          background-color: var(--colors-negative-500) !important;
         }
-        .boostlook .line-comparison .coverage-UIC pre,
-        .boostlook .line-comparison .coverage-UIC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-UIC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-UIC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-UIC {
-          background-color: #EEAA30 !important;
+          background-color: var(--colors-negative-400) !important;
         }
-        .boostlook .line-comparison .coverage-UBC pre,
-        .boostlook .line-comparison .coverage-UBC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-UBC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-UBC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-UBC {
-          background-color: #FDE007 !important;
+          background-color: var(--colors-warning-400) !important;
         }
-        .boostlook .line-comparison .coverage-GBC pre,
-        .boostlook .line-comparison .coverage-GBC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-GBC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-GBC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-GBC {
-          background-color: #448844 !important;
+          background-color: var(--colors-positive-700) !important;
         }
-        .boostlook .line-comparison .coverage-GIC pre,
-        .boostlook .line-comparison .coverage-GIC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-GIC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-GIC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-GIC {
-          background-color: #30CC37 !important;
+          background-color: var(--colors-positive-600) !important;
         }
-        .boostlook .line-comparison .coverage-GNC pre,
-        .boostlook .line-comparison .coverage-GNC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-GNC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-GNC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-GNC {
-          background-color: #B5F7AF !important;
+          background-color: var(--colors-positive-500) !important;
         }
-        .boostlook .line-comparison .coverage-CBC pre,
-        .boostlook .line-comparison .coverage-CBC th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-CBC pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-CBC th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-CBC {
-          background-color: #CAD7FE !important;
+          background-color: var(--colors-positive-400) !important;
         }
-        .boostlook .line-comparison .coverage-EUB pre,
-        .boostlook .line-comparison .coverage-EUB th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-EUB pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-EUB th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-EUB {
-          background-color: #DDDDDD !important;
+          background-color: var(--colors-blue-600) !important;
         }
-        .boostlook .line-comparison .coverage-ECB pre,
-        .boostlook .line-comparison .coverage-ECB th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-ECB pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-ECB th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-ECB {
-          background-color: #CC66FF !important;
+          background-color: var(--colors-code-colors-purple) !important;
         }
-        .boostlook .line-comparison .coverage-DUB pre,
-        .boostlook .line-comparison .coverage-DUB th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-DUB pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-DUB th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-DUB {
-          background-color: grey !important;
+          background-color: var(--colors-blue-400) !important;
         }
-        .boostlook .line-comparison .coverage-DCB pre,
-        .boostlook .line-comparison .coverage-DCB th.coverage-kind,
+        .advanced-coverage .boostlook .line-comparison .coverage-DCB pre,
+        .advanced-coverage .boostlook .line-comparison .coverage-DCB th.coverage-kind,
         .boostlook .coverage-summary  .coverage-kind.coverage-DCB {
-          background-color: pink !important;
+          background-color: var(--colors-code-colors-turquoise) !important;
+        }
+        .boostlook .coverage-summary .coverage-kind.coverage-hit {
+          background-color: var(--colors-positive-400) !important;
+        }
+        .boostlook .coverage-summary .coverage-kind.coverage-hit-new {
+          background-color: var(--colors-positive-600) !important;
+        }
+        .boostlook .coverage-summary .coverage-kind.coverage-miss {
+          background-color: var(--colors-negative-400) !important;
+        }
+        .boostlook .coverage-summary .coverage-kind.coverage-miss-new {
+          background-color: var(--colors-negative-600) !important;
+        }
+        .basic-coverage .boostlook .line-comparison .coverage-UNC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-UNC th.coverage-kind,
+        .basic-coverage .boostlook .line-comparison .coverage-LBC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-LBC th.coverage-kind,
+        .basic-coverage .boostlook .line-comparison .coverage-UIC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-UIC th.coverage-kind {
+          background-color: var(--colors-negative-600) !important;
+        }
+        .basic-coverage .boostlook .line-comparison .coverage-UBC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-UBC th.coverage-kind {
+          background-color: var(--colors-negative-400) !important;
+        }
+        .basic-coverage .boostlook .line-comparison .coverage-GBC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-GBC th.coverage-kind,
+        .basic-coverage .boostlook .line-comparison .coverage-GIC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-GIC th.coverage-kind,
+        .basic-coverage .boostlook .line-comparison .coverage-GNC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-GNC th.coverage-kind {
+          background-color: var(--colors-positive-600) !important;
+        }
+        .basic-coverage .boostlook .line-comparison .coverage-CBC pre,
+        .basic-coverage .boostlook .line-comparison .coverage-CBC th.coverage-kind {
+          background-color: var(--colors-positive-400) !important;
         }
       </style>
     </head>
   <body>
-    <div class="boostlook">
-      <header>
+    <div class="boostlook"><div id="content">
+      <header id="header">
+        {% block header %}
+        <div id="user-settings">
+            <i id="feature-advanced" class="fas fa-magnifying-glass-minus icon-link"
+                onclick="toggleAdvanced()" title="Toggle simple/advanced"></i>
+            <i id="light-dark" class="fas fa-sun icon-link"
+                onclick="changeTheme()" title="Toggle light/dark theme"></i>
+        </div>
         <h1>
           Diff coverage report for<br/>
           <nav>
@@ -166,52 +228,109 @@ Previously tested code has been deleted
             {{ file.basename or '.' }}
           </nav>
         </h1>
-        <table class="coverage-summary">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Coverage</th>
-              <th>Total</th>
-              <th>Misses</th>
-              {{ coverage_kind('UNC') }}
-              {{ coverage_kind('LBC') }}
-              {{ coverage_kind('UIC') }}
-              {{ coverage_kind('UBC') }}
-              {{ coverage_kind('GBC') }}
-              {{ coverage_kind('GIC') }}
-              {{ coverage_kind('GNC') }}
-              {{ coverage_kind('CBC') }}
-              {{ coverage_kind('EUB') }}
-              {{ coverage_kind('ECB') }}
-              {{ coverage_kind('DUB') }}
-              {{ coverage_kind('DCB') }}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <th>Lines</th>
-              <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
-              <td>{{ file.lines.total_count }}</td>
-              <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
-              <td>{% if file.lines.UNC %}<a>{{ file.lines.UNC }}</a>{% endif %}</td>
-              <td>{% if file.lines.LBC %}<a>{{ file.lines.LBC }}</a>{% endif %}</td>
-              <td>{% if file.lines.UIC %}<a>{{ file.lines.UIC }}</a>{% endif %}</td>
-              <td>{% if file.lines.UBC %}<a>{{ file.lines.UBC }}</a>{% endif %}</td>
-              <td>{% if file.lines.GBC %}<a>{{ file.lines.GBC }}</a>{% endif %}</td>
-              <td>{% if file.lines.GIC %}<a>{{ file.lines.GIC }}</a>{% endif %}</td>
-              <td>{% if file.lines.GNC %}<a>{{ file.lines.GNC }}</a>{% endif %}</td>
-              <td>{% if file.lines.CBC %}<a>{{ file.lines.CBC }}</a>{% endif %}</td>
-              <td>{% if file.lines.EUB %}<a>{{ file.lines.EUB }}</a>{% endif %}</td>
-              <td>{% if file.lines.ECB %}<a>{{ file.lines.ECB }}</a>{% endif %}</td>
-              <td>{% if file.lines.DUB %}<a>{{ file.lines.DUB }}</a>{% endif %}</td>
-              <td>{% if file.lines.DCB %}<a>{{ file.lines.DCB }}</a>{% endif %}</td>
-            </tr>
-          </tbody>
-        </table>
+        {% endblock %}
       </header>
       <main>
         {% block main %}{% endblock %}
       </main>
-    </div>
+    </div></div>
+    <script type="text/javascript">
+        function changeTheme()
+        {
+            const storedColorMode = localStorage.getItem("colorMode");
+            const browserColorMode = getBrowserColorMode(window);
+            let newColorMode = null;
+            if (storedColorMode)
+            {
+                newColorMode = storedColorMode === "dark" ? "light" : "dark";
+            }
+            else
+            {
+                newColorMode = browserColorMode === "dark" ? "light" : "dark";
+            }
+            localStorage.setItem("colorMode", newColorMode);
+            updateColorElement(newColorMode)
+        }
+
+        function toggleAdvanced()
+        {
+            const storedMode = localStorage.getItem("advancedCoverage");
+            let newMode = "advanced-coverage";
+            if (storedMode === "advanced-coverage")
+            {
+                newMode = "basic-coverage";
+            }
+            localStorage.setItem("advancedCoverage", newMode);
+            updateAdvancedElement(newMode)
+        }
+
+        function updateFeatureElement(
+            toggleId, val1, class1, val2, class2, newVal)
+        {
+            const toggleElement = document.getElementById(toggleId)
+            const docElement = document.documentElement;
+            if (newVal === val1)
+            {
+                if (toggleElement)
+                {
+                    toggleElement.classList.remove(class2);
+                    toggleElement.classList.add(class1);
+                }
+                docElement.classList.remove(val2);
+            }
+            else
+            {
+                if (toggleElement)
+                {
+                    toggleElement.classList.remove(class1);
+                    toggleElement.classList.add(class2);
+                }
+                docElement.classList.remove(val1);
+            }
+
+            docElement.classList.add(newVal);
+        }
+
+        function updateColorElement(colorMode)
+        {
+            updateFeatureElement(
+                "light-dark", "light", "fa-sun", "dark", "fa-moon", colorMode);
+        }
+
+        function updateAdvancedElement(mode)
+        {
+            updateFeatureElement(
+                "feature-advanced",
+                "advanced-coverage",
+                "fa-magnifying-glass-plus",
+                "basic-coverage",
+                "fa-magnifying-glass-minus",
+                mode);
+        }
+
+        function getBrowserColorMode(win)
+        {
+            const prefersDark = win.matchMedia('(prefers-color-scheme: dark)').matches;
+            return prefersDark ? "dark" : "light";
+        }
+
+        (function()
+        {
+            const relevantWindow = window.parent || window;
+            let browserColorMode = null;
+            const userColorMode = localStorage.getItem("colorMode");
+            const userAdvancedMode = localStorage.getItem("advancedCoverage");
+            if (!relevantWindow.matchMedia)
+            {
+                browserColorMode = getBrowserColorMode(relevantWindow);
+                if (userColorMode === browserColorMode)
+                {
+                    localStorage.removeItem("colorMode");
+                }
+            }
+            updateColorElement(userColorMode || browserColorMode || "dark");
+            updateAdvancedElement(userAdvancedMode || "basic-coverage");
+        })();
+    </script>
   <body>
 <html>

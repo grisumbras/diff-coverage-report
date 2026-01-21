@@ -1,12 +1,86 @@
 {% extends 'base.html' %}
 
+{% block header %}
+{{ super() }}
+<table class="tableblock coverage-summary">
+  <thead>
+    <tr class="row-coverage-advanced">
+      <th></th>
+      <th>Coverage</th>
+      <th>Total</th>
+      <th>Misses</th>
+      {{ coverage_kind('UNC') }}
+      {{ coverage_kind('LBC') }}
+      {{ coverage_kind('UIC') }}
+      {{ coverage_kind('UBC') }}
+      {{ coverage_kind('GBC') }}
+      {{ coverage_kind('GIC') }}
+      {{ coverage_kind('GNC') }}
+      {{ coverage_kind('CBC') }}
+      {{ coverage_kind('EUB') }}
+      {{ coverage_kind('ECB') }}
+      {{ coverage_kind('DUB') }}
+      {{ coverage_kind('DCB') }}
+    </tr>
+    <tr class="row-coverage-basic">
+      <th>Child</th>
+      <th>Rate</th>
+      <th>Total</th>
+      <th class="coverage-kind coverage-miss">Misses</th>
+      <th class="coverage-kind coverage-miss-new" colspan="4">New Misses</th>
+      <th class="coverage-kind coverage-hit" colspan="4">Hits</th>
+      <th class="coverage-kind coverage-hit-new" colspan="4">New Hits</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr class="row-coverage-advanced">
+      <th>Lines</th>
+      <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
+      <td>{{ file.lines.total_count }}</td>
+      <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
+      <td>{{ file.lines.UNC or '' }}</td>
+      <td>{{ file.lines.LBC or '' }}</td>
+      <td>{{ file.lines.UIC or '' }}</td>
+      <td>{{ file.lines.UBC or '' }}</td>
+      <td>{{ file.lines.GBC or '' }}</td>
+      <td>{{ file.lines.GIC or '' }}</td>
+      <td>{{ file.lines.GNC or '' }}</td>
+      <td>{{ file.lines.CBC or '' }}</td>
+      <td>{{ file.lines.EUB or '' }}</td>
+      <td>{{ file.lines.ECB or '' }}</td>
+      <td>{{ file.lines.DUB or '' }}</td>
+      <td>{{ file.lines.DCB or '' }}</td>
+    </tr>
+    <tr class="row-coverage-basic">
+      <th>Lines</th>
+      <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
+      <td>{{ file.lines.total_count }}</td>
+      {% set v = file.lines.total_count - file.lines.total_hits -%}
+      <td class="coverage-kind{% if v %} coverage-miss{% endif %}">
+          {{ v or '' }}
+      </td>
+      {% set v = file.lines.UNC + file.lines.LBC + file.lines.UIC -%}
+      <td class="coverage-kind{% if v %} coverage-miss-new{% endif %}" colspan="4">
+          {{ v or '' }}
+      </td>
+      {% set v = file.lines.total_hits -%}
+      <td class="coverage-kind{% if v %} coverage-hit{% endif %}" colspan="4">
+          {{ v or '' }}
+      </td>
+      {% set v = file.lines.GBC + file.lines.GIC + file.lines.GNC -%}
+      <td class="coverage-kind{% if v %} coverage-hit-new{% endif %}" colspan="4">
+          {{ v or '' }}
+      </td>
+    </tr>
+  </tbody>
+</table>
+{% endblock %}
+
 {% block main %}
 <table class='line-comparison'>
   <tbody>
-    {% set ns = namespace(kind='') -%}
     {% for n1, t1, c1, n2, t2, c2, a, k in lines %}
-    <tr class="coverage-{{k}}">
-      {% if k %}{% set ns.kind = k %}{% endif -%}
+    <tr class="coverage-{{k}}"{% if k %} title="{{ coverage_hint(k) }}"{% endif %}>
       {% if n1 %}<th><a href="#OL{{ n1 }}">{{ n1 }}</a></th>
       {%- else %}<td></td>{% endif %}
       {% if a == 'm' -%}
@@ -19,7 +93,11 @@
       <td{%- if c1 == -1 %} class="coverage-none"
          {%- elif c1 == 0 %} class="coverage-miss"
          {%- elif c1 > 0 %} class="coverage-hit"
-      {%- endif %}><pre>{{ t1 }}</pre></td>
+         {%- endif %}>
+            <div class="listingblock">
+                <pre><code>{{ t1 }}</code></pre>
+            </div>
+      </td>
       {% if n2 %}<th><a href="#NL{{ n2 }}">{{ n2 }}</a></th>
       {%- else %}<td></td>{% endif %}
       {% if a == 'm' -%}
@@ -32,8 +110,11 @@
       <td{%- if c2 == -1 %} class="coverage-none"
          {%- elif c2 == 0 %} class="coverage-miss"
          {%- elif c2 > 0 %} class="coverage-hit"
-      {%- endif %}><pre>{{ t2 }}</pre></td>
-      {{ coverage_kind(ns.kind, loop) }}
+      {%- endif %}>
+        <div class="listingblock">
+            <pre><code>{{ t2 }}</code></pre>
+        </div>
+      </td>
     </tr>
     {% endfor %}
   </tbody>
