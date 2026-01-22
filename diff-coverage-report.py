@@ -140,7 +140,7 @@ def parse_tracefile(lines, source_dir, prefix_map, files=None):
 
         elif directive == 'FNA':
             assert cur_file is not None
-            cur_file.functions.add_alias(*parts.split(',', 2))
+            cur_file.functions.add_alias(*parts[1].split(',', 2))
 
         elif directive == 'FN':
             assert cur_file is not None
