@@ -225,8 +225,10 @@ def parse_diff(lines, result, source_dir, prefix_map):
             assert new_count == 0
             file_data.changes = changes
 
+    prior_preprends = 0
     for l in lines:
         if l.startswith('--- '):
+            prior_preprends = 0
             commit()
             changes = []
             old_line = -1
@@ -236,6 +238,7 @@ def parse_diff(lines, result, source_dir, prefix_map):
             old_file = fix_path(old_file.rstrip(), prefix_map)
 
         elif l.startswith('+++ '):
+            prior_preprends = 0
             _, new_file = l.split(' ', 1)
             new_file = fix_path(new_file.rstrip(), prefix_map)
             if old_file != new_file:
@@ -251,6 +254,7 @@ def parse_diff(lines, result, source_dir, prefix_map):
                 # ignore this file, it doesn't have coverage
 
         elif l.startswith('@@ '):
+            prior_preprends = 0
             _, old_range, new_range, _ = l.split(' ', 3)
             assert old_range[0] == '-'
             assert new_range[0] == '+'
@@ -268,28 +272,34 @@ def parse_diff(lines, result, source_dir, prefix_map):
                 new_count = 1
 
         elif l.startswith(' '):
+            prior_preprends = 0
             old_line += 1
             new_line += 1
             old_count -= 1
             new_count -= 1
 
         elif l.startswith('-'):
+            prior_preprends += 1
             changes.append(('prepend', new_line, old_line, l[1:]))
             old_line += 1
             old_count -= 1
 
         elif l.startswith('+'):
-            if changes and changes[-1][0] == 'prepend':
-                change = changes[-1]
-                changes[-1] = ('modify', change[1], change[2], change[3])
+            if prior_preprends:
+                assert prior_preprends > 0
+                change = changes[-prior_preprends]
+                assert change[0] == 'prepend'
+                changes[-prior_preprends] = (
+                    'modify', new_line, change[2], change[3],
+                )
+                prior_preprends -= 1
             else:
                 changes.append(('remove', new_line, old_line))
             new_line += 1
             new_count -= 1
 
         else:
-            # ignore
-            pass
+            prior_preprends = 0
 
     commit()
     return result
