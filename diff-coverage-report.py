@@ -241,12 +241,14 @@ def parse_diff(lines, result, source_dir, prefix_map):
             old_line = -1
             new_line = -1
 
-            _, old_file = l.split(' ', 1)
+            old_file = l.split(' ', 1)[1]
+            old_file = old_file.split('\t', 1)[0]
             old_file = fix_path(old_file.rstrip(), prefix_map)
 
         elif l.startswith('+++ '):
             prior_preprends = 0
-            _, new_file = l.split(' ', 1)
+            new_file = l.split(' ', 1)[1]
+            new_file = new_file.split('\t', 1)[0]
             new_file = fix_path(new_file.rstrip(), prefix_map)
             if old_file != new_file:
                 if old_file == '/dev/null':
