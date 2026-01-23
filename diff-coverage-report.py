@@ -255,7 +255,15 @@ def parse_diff(lines, result, source_dir, prefix_map):
                     old_file = new_file
                 elif new_file == '/dev/null':
                     new_file = old_file
-            assert old_file == new_file
+            if old_file != new_file:
+                print(
+                    'error: diffed files have different names:\n'
+                    f'\t{old_file}\n'
+                    f'\t{new_file}\n'
+                    'Did you forget to map a path prefix?',
+                    file=sys.stderr
+                )
+                sys.exit(1)
 
             file_data = result.get(new_file)
             if file_data is None:
@@ -362,7 +370,13 @@ def fix_path(path: str, prefix_map) -> str:
 
 
 def path_suffix(path: str, source_dir: str) -> str:
-    assert path.startswith(source_dir)
+    if not path.startswith(source_dir):
+        print(
+            f'error: file path {path} doesn\'t belong to the source directory'
+            f' {source_dir}.\nDid you forget to map a path prefix?',
+            file=sys.stderr
+        )
+        sys.exit(1)
     return path[len(source_dir) + 1:]
 
 
