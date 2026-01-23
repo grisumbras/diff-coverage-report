@@ -658,6 +658,7 @@ class DiffedLines():
 
     def __iter__(self):
         changes = sorted(self.data.changes, key=lambda l: l[1])
+        changes2 = list(changes)
 
         it = iter(self.lines)
         n_i = 1
@@ -669,21 +670,25 @@ class DiffedLines():
                     c = changes[0]
                     changes = changes[1:]
                     if c[0] == 'modify':
+                        print(( o_i, c[3], n_i, line, 'm'))
                         yield o_i, c[3], n_i, line, 'm'
                         n_i += 1
                         o_i += 1
                     elif c[0] == 'remove':
+                        print(( None, '', n_i, line, 'a'))
                         yield None, '', n_i, line, 'a'
                         n_i += 1
                     elif c[0] == 'prepend':
+                        print((o_i, c[3], None, '', 'r'))
                         yield o_i, c[3], None, '', 'r'
                         o_i += 1
                         continue
                     else:
                         assert False
-                elif changes and (changes[0][1] < n_i or changes[0][2] < n_i):
-                    raise Exception(str(changes))
+                elif changes and (changes[0][1] < n_i or changes[0][2] < o_i):
+                    raise Exception(f'{self.data.source_path}@{n_i}: {changes2}')
                 else:
+                    print(( o_i, line, n_i, line, 'k'))
                     yield o_i, line, n_i, line, 'k'
                     n_i += 1
                     o_i += 1
