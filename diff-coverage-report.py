@@ -24,13 +24,13 @@ def main(argv):
     source_dir = os.path.abspath(args.source_dir)
     prefix_map = list(itertools.batched(args.map_prefix or [], 2))
 
-    with open(args.target_info, 'r') as f:
+    with open(args.target_info, 'r', encoding='utf-8', errors='replace') as f:
         files = parse_tracefile(f, source_dir, prefix_map)
 
-    with open(args.base_info, 'r') as f:
+    with open(args.base_info, 'r', encoding='utf-8', errors='replace') as f:
         files = parse_tracefile(f, source_dir, prefix_map, files)
 
-    with open(args.diff, 'r') as f:
+    with open(args.diff, 'r', encoding='utf-8', errors='replace') as f:
         files = parse_diff(f, files, source_dir, prefix_map)
 
     dirs = collect_directories(files, source_dir)
@@ -69,7 +69,7 @@ def main(argv):
     for d in sorted(dirs, reverse=True):
         path = os.path.join(args.output_dir, d.output_path)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as output:
+        with open(path, 'w', encoding='utf-8') as output:
             d.calc()
             dir_template.stream({
                 'file': d,
