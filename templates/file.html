@@ -42,7 +42,11 @@ file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
   <tbody>
     <tr class="row-coverage-advanced">
       <th>Lines</th>
-      <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
+      <td>
+      {%- if file.lines.total_count -%}
+        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
+      {%- endif -%}
+      </td>
       <td>{{ file.lines.total_count }}</td>
       <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
       <td>{{ file.lines.UNC or '' }}</td>
@@ -60,7 +64,11 @@ file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
     </tr>
     <tr class="row-coverage-basic">
       <th>Lines</th>
-      <td>{{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%</td>
+      <td>
+      {%- if file.lines.total_count -%}
+        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
+      {%- endif -%}
+      </td>
       <td>{{ file.lines.total_count }}</td>
       {% set v = file.lines.total_count - file.lines.total_hits -%}
       <td class="coverage-kind{% if v %} coverage-miss{% endif %}">

@@ -8,6 +8,7 @@
 #
 
 import argparse
+import contextlib
 import itertools
 import io
 import jinja2
@@ -52,8 +53,12 @@ def main(argv):
     for file in files.values():
         path = os.path.join(args.output_dir, file.output_path)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w') as output:
-            with open(file.path, 'r') as text:
+        with open(path, 'w', encoding='utf-8') as output:
+            if os.path.exists(file.path):
+                ctx = open(file.path, 'r', encoding='utf-8', errors='replace')
+            else:
+                ctx = contextlib.nullcontext([])
+            with ctx as text:
                 lines = file.calc(text)
                 file_template.stream({
                     'file': file,
@@ -287,6 +292,7 @@ def parse_diff(lines, result, source_dir, prefix_map):
             else:
                 new_line = new_range[0]
                 new_count = 1
+            new_line = new_line or 1
 
         elif l.startswith(' '):
             prior_preprends = 0
