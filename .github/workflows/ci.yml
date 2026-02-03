@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: 'boostorg/json'
-          ref: 4c97cd0ff39c453043cf1b474bdbcacb1979d0f0
+          ref: d88314d6fe4766c701779ed83e006af812fd47c6
           path: target/root
 
       - name: Build target
