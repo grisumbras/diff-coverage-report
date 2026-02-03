@@ -473,11 +473,14 @@ class FileData(FsItemData):
         return self.source_path + '.html'
 
     def calc(self, text: io.IOBase):
-        assert self.base
+        if not self.base:
+            o_l_coverage = []
+        else:
+            o_l_coverage = sorted(self.base.lines, key=lambda l: l[0])
+
         result = []
         diff = DiffedLines(text, self)
         it = iter(diff)
-        o_l_coverage = sorted(self.base.lines, key=lambda l: l[0])
         n_l_coverage = sorted(self.lines, key=lambda l: l[0])
         try:
             while True:
