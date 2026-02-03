@@ -316,6 +316,10 @@ def parse_diff(lines, result, source_dir, prefix_map):
                     'modify', new_line, change[2], change[3],
                 )
                 prior_preprends -= 1
+                for i in range(prior_preprends, 0, -1):
+                    c = list(changes[-i])
+                    c = [c[0], c[1] + 1]  + c[2:]
+                    changes[-i] = tuple(c)
             else:
                 changes.append(('remove', new_line, old_line))
             new_line += 1
@@ -663,7 +667,7 @@ class DiffedLines():
         self.data = data
 
     def __iter__(self):
-        changes = sorted(self.data.changes, key=lambda l: l[1])
+        changes = self.data.changes
         changes2 = changes[:]
 
         it = iter(self.lines)
