@@ -703,7 +703,11 @@ class DiffedLines():
                     o_i += 1
                 line = next(it)
         except StopIteration:
-            pass
+            for c in changes:
+                assert c[0] == 'prepend'
+                yield o_i, c[3], None, '', 'r'
+                o_i += 1
+                continue
 
 
 if __name__ == '__main__':
