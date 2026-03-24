@@ -5,136 +5,215 @@ Distributed under the Boost Software License, Version 1.0. (See accompanying
 file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #}
 
-{% extends 'base.html' %}
 
-{% block main %}
-<table class="file-comparison coverage-summary tableblock grid-all frame-all fit-content">
-  <thead>
-    <tr class="row-coverage-advanced">
-      <th>Child</th>
-      <th>Rate</th>
-      <th>Total</th>
-      <th>Misses</th>
-      {{ coverage_kind('UNC') }}
-      {{ coverage_kind('LBC') }}
-      {{ coverage_kind('UIC') }}
-      {{ coverage_kind('UBC') }}
-      {{ coverage_kind('GBC') }}
-      {{ coverage_kind('GIC') }}
-      {{ coverage_kind('GNC') }}
-      {{ coverage_kind('CBC') }}
-      {{ coverage_kind('EUB') }}
-      {{ coverage_kind('ECB') }}
-      {{ coverage_kind('DUB') }}
-      {{ coverage_kind('DCB') }}
-    </tr>
-    <tr class="row-coverage-basic">
-      <th>Child</th>
-      <th>Rate</th>
-      <th>Total</th>
-      <th class="coverage-kind coverage-miss">Misses</th>
-      <th class="coverage-kind coverage-miss-new" colspan="4">New Misses</th>
-      <th class="coverage-kind coverage-hit" colspan="4">Hits</th>
-      <th class="coverage-kind coverage-hit-new" colspan="4">New Hits</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr class="row-coverage-advanced">
-      <th>Total</th>
-      <td>
-      {%- if file.lines.total_count -%}
-        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ file.lines.total_count }}</td>
-      <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
-      {{ coverage_kind('UNC', data=file.lines.UNC or '') }}
-      {{ coverage_kind('LBC', data=file.lines.LBC or '') }}
-      {{ coverage_kind('UIC', data=file.lines.UIC or '') }}
-      {{ coverage_kind('UBC', data=file.lines.UBC or '') }}
-      {{ coverage_kind('GBC', data=file.lines.GBC or '') }}
-      {{ coverage_kind('GIC', data=file.lines.GIC or '') }}
-      {{ coverage_kind('GNC', data=file.lines.GNC or '') }}
-      {{ coverage_kind('CBC', data=file.lines.CBC or '') }}
-      {{ coverage_kind('EUB', data=file.lines.EUB or '') }}
-      {{ coverage_kind('ECB', data=file.lines.ECB or '') }}
-      {{ coverage_kind('DUB', data=file.lines.DUB or '') }}
-      {{ coverage_kind('DCB', data=file.lines.DCB or '') }}
-    </tr>
-    <tr class="row-coverage-basic">
-      <th>Total</th>
-      <td>
-      {%- if file.lines.total_count -%}
-        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ file.lines.total_count }}</td>
-      {% set v = file.lines.total_count - file.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-miss{% endif %}">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.UNC + file.lines.LBC + file.lines.UIC -%}
-      <td class="coverage-kind{% if v %} coverage-miss-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-hit{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.GBC + file.lines.GIC + file.lines.GNC -%}
-      <td class="coverage-kind{% if v %} coverage-hit-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-    </tr>
+{% extends 'new_base.html' %}
+{% import 'util.html' as util %}
+
+
+{% macro basic_summary_card(title, data, basic=False) -%}
+<div class="summary-card{% if basic == true %} basic-ui{% endif %}">
+  <div class="summary-card-header">
+    <h3>{{ title }}</h3>
+  </div>
+  <div class="summary-card-body">
+    {% set ratio = util.hit_ratio(data) | float -%}
+    <div class="coverage-ring {{ util.classify_basic(ratio) }}">
+      <svg viewBox="0 0 36 36">
+        <path class="ring-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+        <path class="ring-fill" stroke-dasharray="{{ ratio * 100 }}, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"/>
+      </svg>
+      <span class="ring-text">{{ "%.1f" | format(ratio * 100) }}%</span>
+    </div>
+    <div class="summary-stats">
+      <div class="stat-row">
+        <span class="stat-label">Hit</span>
+        {% if basic -%}
+          {% set value = data.GBC + data.GIC + data.GNC -%}
+          <span class="stat-value">{{ data.total_hits }} (+{{value}})</span>
+        {% else -%}
+          <span class="stat-value">{{ data.total_hits }}</span>
+        {% endif -%}
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Miss</span>
+        {% if basic -%}
+          {% set value = data.UNC + data.LBC + data.UIC -%}
+          <span class="stat-value">{{ data.total_count - data.total_hits }} (+{{value}})</span>
+        {% else -%}
+          <span class="stat-value">{{ data.total_count - data.total_hits }}</span>
+        {% endif -%}
+      </div>
+      <div class="stat-row">
+        <span class="stat-label">Total</span>
+        <span class="stat-value">{{ data.total_count }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% block summary %}
+<div class="summary-cards">
+  {{ basic_summary_card('Lines', file.lines, basic=True) }}
+  <div class="summary-card advanced-ui">
+    <div class="summary-card-header">
+      <h3>Lines</h3>
+    </div>
+    <div class="summary-card-body">
+      <div class="coverage-ring">
+        {% set size = 36 -%}
+        {% set width = 6 -%}
+        <svg viewBox="0 0 {{size}} {{size}}">
+          {% set offset = size/2 -%}
+          {% set radius = offset - width / 2 -%}
+          {% set total = file.lines.total_count or 1 -%}
+          {% set ns = namespace(x=offset, y=offset-radius, acc=0) -%}
+          {% for cat in ['CBC', 'GNC', 'GIC', 'GBC', 'UBC', 'UIC', 'LBC', 'UNC', 'EUB', 'ECB', 'DUB', 'DCB'] -%}
+            {% set ratio = (file.lines | attr(cat)) / total -%}
+            {% set angle = 2 * PI * (0.25 - ns.acc - ratio) -%}
+            {% set x2 = offset + cos(angle) * radius -%}
+            {% set y2 = offset - sin(angle) * radius -%}
+            <path d="M{{ns.x}},{{ns.y}} A{{radius}},{{radius}} 0 {{ 1 if ratio > 0.5 else 0 }} 1 {{x2}},{{y2}}"
+                  class="{{cat|lower}}"><title>{{cat}}: {{util.coverage_hint(cat)}}</title></path>
+            {% set ns.acc = ns.acc + ratio -%}
+            {% set ns.x = x2 -%}
+            {% set ns.y = y2 -%}
+          {% endfor %}
+        </svg>
+      </div>
+      <div class="summary-stats">
+        <table>
+          <tbody>
+            {% for batch in ['CBC', 'UBC', 'EUB', 'GNC', 'UIC', 'ECB', 'GIC',  'LBC', 'DUB', 'GBC', 'UNC', 'DCB'] | batch(3) -%}
+            <tr class="stat-row">
+              {% for cat in batch -%}
+              <th class="stat-label {{cat|lower}}" title="{{util.coverage_hint(cat)}}"><span>{{cat}}</span></th>
+              <td class="stat-value">{{ file.lines |attr(cat) }}</th>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {{ basic_summary_card('Functions', file.functions) }}
+</div>
+
+<div class="coverage-legend">
+  <span class="legend-item coverage-high">High: &ge; 90%</span>
+  <span class="legend-item coverage-medium">Medium: &ge; 75%</span>
+  <span class="legend-item coverage-low">Low: &lt; 75%</span>
+</div>
+{% endblock %}
+
+
+{% block navigation %}
+{%- if file != file.root %}
+<div class="nav-links">
+  <a href="{{ file.relative_path(file.parent)}} " class="nav-link nav-up" title="Go to parent directory">
+    {% call util.svg_path() %}
+      M3.22 9.78a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0l4.25 4.25a.75.75 0 01-1.06 1.06L8 6.06 4.28 9.78a.75.75 0 01-1.06 0z
+    {% endcall %}
+    Up
+  </a>
+</div>
+{% endif -%}
+{% endblock %}
+
+
+{% block content %}
+<div class="file-list-container no-branches no-conditions no-decisions no-calls">
+  <div class="file-list-header">
+    <div class="col-name sortable sorted-ascending" data-sort="filename">
+      Name
+    </div>
+    <div class="col-coverage sortable basic-ui" data-sort="coverage">
+      Coverage
+    </div>
+    <div class="col-stat sortable advanced-ui" data-sort="lines">
+      Lines
+    </div>
+    {% for cat in ['CBC', 'GNC', 'GIC', 'GBC', 'UBC', 'UIC', 'LBC', 'UNC', 'EUB', 'ECB', 'DUB', 'DCB'] -%}
+    <div class="col-stat sortable advanced-ui {{cat|lower}}" title="{{util.coverage_hint(cat)}}" data-sort="{{cat|lower}}">
+      {{cat}}
+    </div>
+    {%- endfor %}
+    <div class="col-stat sortable basic-ui" data-sort="hits">
+      Hits
+    </div>
+    <div class="col-stat sortable basic-ui" data-sort="misses">
+      Misses
+    </div>
+    <div class="col-functions sortable" data-sort="functions">
+      Functions
+    </div>
+  </div>
+
+  <div class="file-list-body" id="file-list">
     {% for c in file.children %}
-    <tr class="row-coverage-advanced">
-      <th><a href='{{ file.relative_path(c) }}'>{{ c.basename }}</a></th>
-      <td>
-      {%- if c.lines.total_count -%}
-        {{ "%.2f" | format(c.lines.total_hits / c.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ c.lines.total_count }}</td>
-      <td>{{ (c.lines.total_count - c.lines.total_hits) or '' }}</td>
-      {{ coverage_kind('UNC', data=c.lines.UNC or '') }}
-      {{ coverage_kind('LBC', data=c.lines.LBC or '') }}
-      {{ coverage_kind('UIC', data=c.lines.UIC or '') }}
-      {{ coverage_kind('UBC', data=c.lines.UBC or '') }}
-      {{ coverage_kind('GBC', data=c.lines.GBC or '') }}
-      {{ coverage_kind('GIC', data=c.lines.GIC or '') }}
-      {{ coverage_kind('GNC', data=c.lines.GNC or '') }}
-      {{ coverage_kind('CBC', data=c.lines.CBC or '') }}
-      {{ coverage_kind('EUB', data=c.lines.EUB or '') }}
-      {{ coverage_kind('ECB', data=c.lines.ECB or '') }}
-      {{ coverage_kind('DUB', data=c.lines.DUB or '') }}
-      {{ coverage_kind('DCB', data=c.lines.DCB or '') }}
-    </tr>
-    <tr class="row-coverage-basic">
-      <th><a href='{{ file.relative_path(c) }}'>{{ c.basename }}</a></th>
-      <td>
-      {%- if c.lines.total_count -%}
-        {{ "%.2f" | format(c.lines.total_hits / c.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ c.lines.total_count }}</td>
-      {% set v = c.lines.total_count - c.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-miss{% endif %}">
-          {{ v or '' }}
-      </td>
-      {% set v = c.lines.UNC + c.lines.LBC + c.lines.UIC -%}
-      <td class="coverage-kind{% if v %} coverage-miss-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = c.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-hit{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = c.lines.GBC + c.lines.GIC + c.lines.GNC -%}
-      <td class="coverage-kind{% if v %} coverage-hit-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-    </tr>
+      {% set l_ratio = util.hit_ratio(c.lines) | float -%}
+      {% set f_ratio = util.hit_ratio(c.functions) | float -%}
+      <div class="file-row {% if c.is_directory %}directory{% else %}file{% endif %}"
+         data-filename="{{ c.basename }}"
+         data-coverage="{{ l_ratio * 100 }}"
+         data-lines="{{ c.lines.total_count }}"
+         {% for cat in ['CBC', 'GNC', 'GIC', 'GBC', 'UBC', 'UIC', 'LBC', 'UNC', 'EUB', 'ECB', 'DUB', 'DCB'] -%}
+         data-{{cat|lower}}="{{ c.lines | attr(cat) }}"
+         {%- endfor %}
+         data-hits="{{ c.lines.total_hits }}"
+         data-misses="{{ c.lines.total_hits }}"
+         data-functions="{{ f_ratio }}"
+      >
+      <div class="col-name">
+        <span class="file-icon">{{ util.file_icon(c) }}</span>
+        <a href="{{ file.relative_path(c) }}" title="{{ c.basename }}">{{ c.basename }}</a>
+      </div>
+
+      <div class="col-coverage basic-ui">
+        <div class="coverage-bar-container">
+          <div class="coverage-bar {{ util.classify_basic(l_ratio)}}" style="width: {{ l_ratio * 100 }}%"></div>
+          {% set total = c.lines.total_count or 1 -%}
+          {% set value = c.lines.UNC + c.lines.LBC + c.lines.UIC -%}
+          <div class="coverage-bar new-misses" style="width: {{value/total*100}}%"></div>
+          {% set value = c.lines.GBC + c.lines.GIC + c.lines.GNC -%}
+          <div class="coverage-bar additions {{ util.classify_basic(l_ratio)}}" style="left: {{(c.lines.total_hits - value) / total * 100}}%; width: {{value/total*100}}%"></div>
+        </div>
+        <span class="coverage-percent {{ util.classify_basic(l_ratio)}}">{% if c.lines.total_count %}{{ "%.1f" | format(l_ratio * 100) }}%{% else %}-{% endif %}</span>
+      </div>
+
+      <div class="col-stat advanced-ui">
+        <span class="stat-value">{{ c.lines.total_count }}</span>
+      </div>
+
+      {% for cat in ['CBC', 'GNC', 'GIC', 'GBC', 'UBC', 'UIC', 'LBC', 'UNC', 'EUB', 'ECB', 'DUB', 'DCB'] -%}
+      <div class="col-stat advanced-ui {{cat|lower}}">
+        <span class="stat-value">{{ (c.lines | attr(cat)) or '' }}</span>
+      </div>
+      {%- endfor %}
+
+      <div class="col-lines basic-ui">
+        <span class="stat-value">{{ c.lines.total_hits }}</span>
+        <span class="stat-separator">/</span>
+        {% set value = c.lines.GBC + c.lines.GIC + c.lines.GNC -%}
+        <span class="stat-value">+{{value}}</span>
+        <span class="stat-separator">/</span>
+        <span class="stat-total">{{ c.lines.total_count }}</span>
+      </div>
+      <div class="col-lines basic-ui">
+        <span class="stat-value">{{ c.lines.total_count - c.lines.total_hits }}</span>
+        <span class="stat-separator">/</span>
+        {% set value = c.lines.UNC + c.lines.LBC + c.lines.UIC -%}
+        <span class="stat-value">+{{value}}</span>
+        <span class="stat-separator">/</span>
+        <span class="stat-total">{{ c.lines.total_count }}</span>
+      </div>
+      <div class="col-functions">
+        <span class="stat-value {{ util.classify_basic(f_ratio) }}">{% if c.functions.total_count %}{{ "%.1f" | format(f_ratio * 100) }}%{% else %}-{% endif %}</span>
+      </div>
+    </div>
     {% endfor %}
-  </tbody>
-</table>
+  </div>
+</div>
+
 {% endblock %}

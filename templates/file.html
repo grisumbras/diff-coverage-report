@@ -5,133 +5,144 @@ Distributed under the Boost Software License, Version 1.0. (See accompanying
 file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #}
 
-{% extends 'base.html' %}
+{% extends 'new_base.html' %}
+{%- import 'util.html' as util -%}
 
-{% block header %}
-{{ super() }}
-<table class="tableblock coverage-summary">
-  <thead>
-    <tr class="row-coverage-advanced">
-      <th></th>
-      <th>Coverage</th>
-      <th>Total</th>
-      <th>Misses</th>
-      {{ coverage_kind('UNC') }}
-      {{ coverage_kind('LBC') }}
-      {{ coverage_kind('UIC') }}
-      {{ coverage_kind('UBC') }}
-      {{ coverage_kind('GBC') }}
-      {{ coverage_kind('GIC') }}
-      {{ coverage_kind('GNC') }}
-      {{ coverage_kind('CBC') }}
-      {{ coverage_kind('EUB') }}
-      {{ coverage_kind('ECB') }}
-      {{ coverage_kind('DUB') }}
-      {{ coverage_kind('DCB') }}
-    </tr>
-    <tr class="row-coverage-basic">
-      <th>Child</th>
-      <th>Rate</th>
-      <th>Total</th>
-      <th class="coverage-kind coverage-miss">Misses</th>
-      <th class="coverage-kind coverage-miss-new" colspan="4">New Misses</th>
-      <th class="coverage-kind coverage-hit" colspan="4">Hits</th>
-      <th class="coverage-kind coverage-hit-new" colspan="4">New Hits</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr class="row-coverage-advanced">
-      <th>Lines</th>
-      <td>
-      {%- if file.lines.total_count -%}
-        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ file.lines.total_count }}</td>
-      <td>{{ file.lines.total_count - file.lines.total_hits }}</td>
-      <td>{{ file.lines.UNC or '' }}</td>
-      <td>{{ file.lines.LBC or '' }}</td>
-      <td>{{ file.lines.UIC or '' }}</td>
-      <td>{{ file.lines.UBC or '' }}</td>
-      <td>{{ file.lines.GBC or '' }}</td>
-      <td>{{ file.lines.GIC or '' }}</td>
-      <td>{{ file.lines.GNC or '' }}</td>
-      <td>{{ file.lines.CBC or '' }}</td>
-      <td>{{ file.lines.EUB or '' }}</td>
-      <td>{{ file.lines.ECB or '' }}</td>
-      <td>{{ file.lines.DUB or '' }}</td>
-      <td>{{ file.lines.DCB or '' }}</td>
-    </tr>
-    <tr class="row-coverage-basic">
-      <th>Lines</th>
-      <td>
-      {%- if file.lines.total_count -%}
-        {{ "%.2f" | format(file.lines.total_hits / file.lines.total_count * 100) }}%
-      {%- endif -%}
-      </td>
-      <td>{{ file.lines.total_count }}</td>
-      {% set v = file.lines.total_count - file.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-miss{% endif %}">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.UNC + file.lines.LBC + file.lines.UIC -%}
-      <td class="coverage-kind{% if v %} coverage-miss-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.total_hits -%}
-      <td class="coverage-kind{% if v %} coverage-hit{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-      {% set v = file.lines.GBC + file.lines.GIC + file.lines.GNC -%}
-      <td class="coverage-kind{% if v %} coverage-hit-new{% endif %}" colspan="4">
-          {{ v or '' }}
-      </td>
-    </tr>
-  </tbody>
-</table>
+
+{% macro toggle_button(class, text, value, help, is_basic) %}
+<button type="button" class="btn btn-sm button_toggle {% if is_basic %}basic{% else %}advanced{% endif %}-ui  {{class}}" value="{{class}}" title="{{help}}"{% if not value %} disabled{% endif %}>
+  <span class="btn-count">{{value}}</span> {{text}} <input type="radio" name="navigation"{% if not value %} disabled{% endif %}>
+</button>
+{% endmacro %}
+
+
+{% block summary %}
+<div class="source-summary">
+  <div class="source-info">
+    <div class="source-stats">
+      {% set value = file.lines.total_hits / (file.lines.total_count or 1) -%}
+      <span class="stat {{ util.classify_basic(value) }}">
+        <strong>{{ "%.2f" | format(value * 100) }}%</strong> Lines ({{file.lines.total_hits}}/{{file.lines.total_count}})
+      </span>
+      {% set value = file.functions.total_hits / (file.functions.total_count or 1) -%}
+      <span class="stat {{ util.classify_basic(value) }}">
+        <strong>{{ "%.2f" | format(value * 100) }}%</strong> Functions ({{file.functions.total_hits}}/{{file.functions.total_count}})
+      </span>
+    </div>
+  </div>
+  <div class="nav-hint">
+    <span><kbd>[</kbd> <kbd>]</kbd> prev/next file</span>
+    <span><kbd>n</kbd> <kbd>p</kbd> prev/next uncovered line</span>
+  </div>
+</div>
 {% endblock %}
 
-{% block main %}
-<table class='line-comparison'>
-  <tbody>
-    {% for n1, t1, c1, n2, t2, c2, a, k in lines %}
-    <tr class="coverage-{{k}}"{% if k %} title="{{ coverage_hint(k) }}"{% endif %}>
-      {% if n1 %}<th><a href="#OL{{ n1 }}">{{ n1 }}</a></th>
-      {%- else %}<td></td>{% endif %}
-      {% if a == 'm' -%}
-        <td class="diff-action diff-modify">-</td>
-      {%- elif a == 'r' -%}
-        <td class="diff-action diff-remove">-</td>
-      {%- else -%}
-        <td class="diff-action">&nbsp;</td>
-      {%- endif %}
-      <td{%- if c1 == -1 %} class="coverage-none"
-         {%- elif c1 == 0 %} class="coverage-miss"
-         {%- elif c1 > 0 %} class="coverage-hit"
-         {%- endif %}>
-            <div class="listingblock">
-                <pre><code>{{ t1 }}</code></pre>
-            </div>
-      </td>
-      {% if n2 %}<th><a href="#NL{{ n2 }}">{{ n2 }}</a></th>
-      {%- else %}<td></td>{% endif %}
-      {% if a == 'm' -%}
-        <td class="diff-action diff-modify">+</td>
-      {%- elif a == 'a' -%}
-        <td class="diff-action diff-add">+</td>
-      {%- else -%}
-        <td class="diff-action">&nbsp;</td>
-      {%- endif %}
-      <td{%- if c2 == -1 %} class="coverage-none"
-         {%- elif c2 == 0 %} class="coverage-miss"
-         {%- elif c2 > 0 %} class="coverage-hit"
-      {%- endif %}>
-        <div class="listingblock">
-            <pre><code>{{ t2 }}</code></pre>
-        </div>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+{% block content %}
+<div class="source-container no-branches">
+  <div class="source-header">
+    <div class="source-line-filters">
+      {{ toggle_button('coveredLine', 'covered', file.lines.total_hits, 'Toggle covered lines', true) }}
+      {{ toggle_button('uncoveredLine', 'uncovered', file.lines.total_count - file.lines.total_hits, 'Toggle uncovered lines', true) }}
+      {% for cat in ('CBC', 'GNC', 'GIC', 'GBC', 'UBC', 'UIC', 'LBC', 'UNC', 'EUB', 'ECB', 'DUB', 'DCB') -%}
+        {{ toggle_button(cat|lower, cat, file.lines|attr(cat), util.coverage_hint(cat), false) }}
+      {% endfor %}
+    </div>
+    <div class="source-column-filters">
+      <button type="button" class="btn btn-sm col-toggle show-col" data-col="tla" title="Toggle TLA column">TLA</button>
+      <button type="button" class="btn btn-sm col-toggle show-col" data-col="count" title="Toggle Hits column">Hits</button>
+    </div>
+    <div class="source-nav-links">
+      {% set prev_file = file.previous_file -%}
+      <a class="nav-link nav-prev{% if not prev_file %} disabled{% endif %}"{% if prev_file %} href="{{ file.relative_path(prev_file) }}" title="Previous: {{prev_file.basename}}"{% else %} title="No previous file"{% endif %}>
+        <svg viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M8 2a.75.75 0 01.75.75v8.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 011.06-1.06l3.22 3.22V2.75A.75.75 0 018 2z" transform="rotate(180 8 8)"/></svg>
+      </a>
+      {% set next_file = file.next_file -%}
+      <a class="nav-link nav-next{% if not next_file %} disabled{% endif %}"{% if next_file %} href="{{ file.relative_path(next_file) }}" title="Next: {{next_file.basename}}"{% else %} title="No next file"{% endif %}>
+        <svg viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M8 2a.75.75 0 01.75.75v8.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 011.06-1.06l3.22 3.22V2.75A.75.75 0 018 2z"/></svg>
+      </a>
+    </div>
+    <span class="source-header-sep"></span>
+    <div id="coverage-nav">
+      <button type="button" id="nav-prev" class="nav-link" title="Previous line (p)">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M8 2a.75.75 0 01.75.75v8.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 011.06-1.06l3.22 3.22V2.75A.75.75 0 018 2z" transform="rotate(90 8 8)"/></svg>
+      </button>
+      <span id="nav-counter" class="nav-counter"></span>
+      <button type="button" id="nav-next" class="nav-link" title="Next line (n)">
+        <svg viewBox="0 0 16 16" width="16" height="16"><path fill="currentColor" d="M8 2a.75.75 0 01.75.75v8.69l3.22-3.22a.75.75 0 111.06 1.06l-4.5 4.5a.75.75 0 01-1.06 0l-4.5-4.5a.75.75 0 011.06-1.06l3.22 3.22V2.75A.75.75 0 018 2z" transform="rotate(-90 8 8)"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="source-table-container">
+    <table class="source-table">
+      <thead>
+        <tr>
+          <th class="col-tla" rowspan="2">TLA</th>
+          <th colspan="4">Baseline</th>
+          <th colspan="4">Branch</th>
+        </tr>
+        <tr>
+          <th class="col-lineno" colspan="2">Line</th>
+          <th class="col-count">Hits</th>
+          <th class="col-source">Code</th>
+          <th class="col-lineno" colspan="2">Line</th>
+          <th class="col-count">Hits</th>
+          <th class="col-source">Code</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n1, t1, c1, n2, t2, c2, a, k in lines -%}
+        <tr class="source-line {{ util.covered_class(c2) }} {{k|lower}} show-basic show-advanced">
+          <td class="col-tla">
+            {% set hit_or_miss = 'mis' if c2 == 0 else 'hit' if c2 > 0 else '' -%}
+            {%- if hit_or_miss -%}
+                <a class="tla-link basic-ui tla-{{hit_or_miss}}" data-kind="{{hit_or_miss}}">{{hit_or_miss|upper}}</a>
+            {%- endif -%}
+            {%- if k -%}
+            <a class="tla-link advanced-ui {{k|lower}}" title="{{ util.coverage_hint(k) }}" data-kind="{{k|lower}}">{{k}}</a>
+            {%- endif -%}
+          </td>
+          <td class="col-lineno">
+              {% if n1 %}<a id="OL{{n1}}">{{n1}}</a>{% endif %}
+          </td>
+          {% if a == 'm' -%}
+              <td class="col-diff-action diff-modify">-</td>
+          {%- elif a == 'r' -%}
+              <td class="col-diff-action diff-remove">-</td>
+          {%- else -%}
+              <td class="col-diff-action">&nbsp;</td>
+          {%- endif %}
+          <td class="col-count old-{{ util.covered_class(c1) }}">
+            {%- if c1 == 0 %}
+                <span class="hit-miss">&cross;</span>
+            {%- elif c1 > 0 -%}
+              {{c1}}
+            {%- endif -%}
+          </td>
+          <td class="col-source old-{{ util.covered_class(c1) }}">{{t1}}</td>
+
+          <td class="col-lineno">
+              {% if n2 %}<a id="NL{{n2}}">{{n2}}</a>{% endif %}
+          </td>
+          {% if a == 'm' -%}
+              <td class="col-diff-action diff-modify">+</td>
+          {%- elif a == 'a' -%}
+              <td class="col-diff-action diff-add">+</td>
+          {%- else -%}
+              <td class="col-diff-action">&nbsp;</td>
+          {%- endif %}
+          <td class="col-count">
+            {%- if c2 == 0 %}
+                <span class="hit-miss">&cross;</span>
+            {%- elif c2 > 0 -%}
+              {{c2}}
+            {%- endif -%}
+          </td>
+          <td class="col-source">{{t2}}</td>
+        </tr>
+        {% endfor -%}
+      </tbody>
+    </table>
+  </div>
+</div>
 {% endblock %}

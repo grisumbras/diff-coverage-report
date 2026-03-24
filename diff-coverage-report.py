@@ -12,6 +12,7 @@ import contextlib
 import itertools
 import io
 import jinja2
+import math
 import os
 import os.path
 import shutil
@@ -34,10 +35,13 @@ def main(argv):
         files = parse_diff(f, files, source_dir, prefix_map)
 
     dirs = collect_directories(files, source_dir)
+    root = next(iter(dirs)).root
 
-    os.makedirs(args.output_dir, exist_ok=True)
-    stylesheet = os.path.join(os.path.dirname(__file__), 'boostlook.css')
-    shutil.copyfile(stylesheet, os.path.join(args.output_dir, 'style.css'))
+    shutil.copytree(
+        os.path.join(os.path.dirname(__file__), 'static'),
+        os.path.join(args.output_dir),
+        dirs_exist_ok=True,
+    )
 
     template_env = jinja2.Environment(
         loader=jinja2.FileSystemLoader(
@@ -48,6 +52,10 @@ def main(argv):
         undefined=jinja2.StrictUndefined,
         extensions=['jinja2.ext.do', 'jinja2.ext.loopcontrols'],
     )
+    template_env.globals['sin'] = math.sin
+    template_env.globals['cos'] = math.cos
+    template_env.globals['PI'] = math.pi
+
     file_template = template_env.get_template('file.html')
 
     for file in files.values():
@@ -63,6 +71,7 @@ def main(argv):
                 file_template.stream({
                     'file': file,
                     'lines': lines,
+                    'root': root,
                 }).dump(output)
 
     dir_template = template_env.get_template('dir.html')
@@ -73,6 +82,7 @@ def main(argv):
             d.calc()
             dir_template.stream({
                 'file': d,
+                'root': root,
             }).dump(output)
 
 
@@ -394,6 +404,7 @@ class FsItemData():
     def __init__(self, path: str, source_dir: str):
         self.path = os.path.join(source_dir, path)
         self.lines = LineDataSummary()
+        self.functions = FunctionDataCollection()
         self._parent: (None | DirData) = None
         self._source_dir = source_dir
 
@@ -425,9 +436,21 @@ class FsItemData():
         return list(reversed(result))
 
     @property
+    def root(self):
+        cur = self
+        while cur._parent is not None:
+            cur = cur._parent
+        return cur
+
+    @property
     def stylesheet(self):
         n = len(self.output_path.split(os.sep)) - 1
         return '../' * n + 'style.css'
+
+    @property
+    def script(self):
+        n = len(self.output_path.split(os.sep)) - 1
+        return '../' * n + 'script.js'
 
     @property
     def parent(self):
@@ -462,7 +485,6 @@ class FsItemData():
 class FileData(FsItemData):
     def __init__(self, path: str, source_dir: str):
         super().__init__(path, source_dir)
-        self.functions = FunctionDataCollection()
         self.branches = BranchDataCollection()
         self.lines = LineDataCollection()
         self.changes = []
@@ -543,6 +565,67 @@ class FileData(FsItemData):
         except StopIteration:
             return result
 
+    @property
+    def is_directory(self):
+        return False
+
+    @property
+    def previous_file(self):
+        cur_dir = self._parent
+        siblings = sorted(cur_dir.children)
+        index = siblings.index(self)
+
+        found = None
+        if index > 0:
+            found = siblings[index - 1]
+        else:
+            ancestor = cur_dir._parent
+            while ancestor is not None:
+                uncles = sorted(ancestor.children)
+                index = uncles.index(cur_dir)
+                assert(index >= 0)
+
+                if index == 0:
+                    cur_dir = ancestor
+                    ancestor = ancestor._parent
+                else:
+                    found = uncles[index - 1]
+                    break
+
+        while isinstance(found, DirData):
+            found = sorted(found.children)[-1]
+
+        return found
+
+    @property
+    def next_file(self):
+        cur_dir = self._parent
+        siblings = sorted(cur_dir.children)
+        index = siblings.index(self)
+        assert(index >= 0)
+
+        found = None
+        if index < len(siblings) - 1:
+            found = siblings[index + 1]
+        else:
+            ancestor = cur_dir._parent
+            while ancestor is not None:
+                uncles = sorted(ancestor.children)
+                index = uncles.index(cur_dir)
+                assert(index >= 0)
+
+                if index == len(uncles) - 1:
+                    cur_dir = ancestor
+                    ancestor = ancestor._parent
+                else:
+                    found = uncles[index + 1]
+                    break
+
+        while isinstance(found, DirData):
+            found = sorted(found.children)[0]
+
+        return found
+
     def __lt__(self, other: FsItemData):
         if isinstance(other, DirData):
             return False
@@ -583,6 +666,13 @@ class DirData(FsItemData):
             self.lines.ECB += c.lines.ECB
             self.lines.DUB += c.lines.DUB
             self.lines.DCB += c.lines.DCB
+
+            self.functions.total_count += c.functions.total_count
+            self.functions.total_hits += c.functions.total_hits
+
+    @property
+    def is_directory(self):
+        return True
 
     def __lt__(self, other: FsItemData):
         if isinstance(other, FileData):
