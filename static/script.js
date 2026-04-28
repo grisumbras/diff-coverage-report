@@ -3,6 +3,8 @@
 (function() {
   'use strict';
 
+  var updateCoverageNavigation = function() {};
+
   // Wait for DOM ready
   document.addEventListener('DOMContentLoaded', function() {
     initTheme();
@@ -750,8 +752,6 @@
       });
     });
   }
-
-  var updateCoverageNavigation = null;
 
   function initTlaAnchors() {
     const anchors = document.querySelectorAll('.tla-link');
