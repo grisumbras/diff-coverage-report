@@ -231,116 +231,8 @@ def parse_tracefile(lines, source_dir, prefix_map, files=None):
 
 
 def parse_diff(lines, result, source_dir, prefix_map):
-    old_file = None
-    new_file = None
-    file_data = None
-    old_line = -1
-    new_line = -1
-    old_count = 0
-    new_count = 0
-    changes = []
-
-    def commit():
-        if changes:
-            assert file_data
-            assert old_count == 0
-            assert new_count == 0
-            file_data.changes = changes
-
-    prior_preprends = 0
-    for l in lines:
-        if l.startswith('--- '):
-            prior_preprends = 0
-            commit()
-            changes = []
-            old_line = -1
-            new_line = -1
-
-            old_file = l.split(' ', 1)[1]
-            old_file = old_file.split('\t', 1)[0]
-            old_file = fix_path(old_file.rstrip(), prefix_map)
-
-        elif l.startswith('+++ '):
-            prior_preprends = 0
-            new_file = l.split(' ', 1)[1]
-            new_file = new_file.split('\t', 1)[0]
-            new_file = fix_path(new_file.rstrip(), prefix_map)
-            if old_file != new_file:
-                if old_file == '/dev/null':
-                    old_file = new_file
-                elif new_file == '/dev/null':
-                    new_file = old_file
-            if old_file != new_file:
-                print(
-                    'error: diffed files have different names:\n'
-                    f'\t{old_file}\n'
-                    f'\t{new_file}\n'
-                    'Did you forget to map a path prefix?',
-                    file=sys.stderr
-                )
-                sys.exit(1)
-
-            file_data = result.get(new_file)
-            if file_data is None:
-                file_data = FileData(new_file, source_dir)
-                # ignore this file, it doesn't have coverage
-
-        elif l.startswith('@@ '):
-            prior_preprends = 0
-            _, old_range, new_range, _ = l.split(' ', 3)
-            assert old_range[0] == '-'
-            assert new_range[0] == '+'
-            old_range = [int(x) for x in old_range[1:].split(',')]
-            if len(old_range) > 1:
-                old_line, old_count = old_range
-            else:
-                old_line = old_range[0]
-                old_count = 1
-            new_range = [int(x) for x in new_range[1:].split(',')]
-            if len(new_range) > 1:
-                new_line, new_count = new_range
-            else:
-                new_line = new_range[0]
-                new_count = 1
-            new_line = new_line or 1
-
-        elif l.startswith(' '):
-            prior_preprends = 0
-            old_line += 1
-            new_line += 1
-            old_count -= 1
-            new_count -= 1
-
-        elif l.startswith('-'):
-            prior_preprends += 1
-            changes.append(('prepend', new_line, old_line, l[1:]))
-            old_line += 1
-            old_count -= 1
-
-        elif l.startswith('+'):
-            if prior_preprends:
-                assert prior_preprends > 0
-                change = changes[-prior_preprends]
-                assert change[0] == 'prepend'
-                changes[-prior_preprends] = (
-                    'modify', new_line, change[2], change[3],
-                )
-                prior_preprends -= 1
-                for i in range(prior_preprends, 0, -1):
-                    c = list(changes[-i])
-                    c = [c[0], c[1] + 1]  + c[2:]
-                    changes[-i] = tuple(c)
-            else:
-                changes.append(('remove', new_line, old_line))
-            new_line += 1
-            new_count -= 1
-
-        else:
-            prior_preprends = 0
-
-    commit()
-    return result
-
+    parser = DiffParser()
+    return parser.parse(lines, result, source_dir, prefix_map)
 
 def collect_directories(files, source_dir):
     dirs = {}
@@ -798,6 +690,179 @@ class DiffedLines():
                 yield o_i, c[3], None, '', 'r'
                 o_i += 1
                 continue
+
+class DiffParser():
+    COMMAND = 0
+    BASE = 1
+    TARGET = 2
+    HUNK_START = 3
+    HUNK = 4
+    HUNK_OR_FILE_START = 5
+
+    def __init__(self):
+        pass
+
+    def parse(self, lines, result, source_dir, prefix_map):
+        self.old_file = None
+        self.new_file = None
+        self.file_data = None
+        self.old_line = -1
+        self.new_line = -1
+        self.old_count = 0
+        self.new_count = 0
+        self.changes = []
+        self.prior_preprends = 0
+        self.state = self.COMMAND
+
+        for l in lines:
+            if self.state == self.COMMAND:
+                self._command()
+            elif self.state == self.BASE:
+                self._base(l, prefix_map)
+            elif self.state == self.TARGET:
+                self._target(l, result, source_dir, prefix_map)
+            elif self.state == self.HUNK_START:
+                self._hunk_start(l)
+            elif self.state == self.HUNK:
+                self._hunk(l)
+            elif self.state == self.HUNK_OR_FILE_START:
+                if l.startswith('@@ '):
+                    self._hunk_start(l)
+                elif l.startswith('\\'):
+                    continue
+                else:
+                    self._command()
+            else:
+                assert False
+
+        self._commit()
+        return result
+
+    def _commit(self):
+        if self.changes:
+            assert self.file_data
+            assert self.old_count == 0
+            assert self.new_count == 0
+            assert self.state in (self.HUNK_OR_FILE_START, self.BASE)
+            self.file_data.changes = self.changes
+
+    def _command(self):
+        self.prior_preprends = 0
+        self._commit()
+        self.state = self.BASE
+
+    def _base(self, line, prefix_map):
+        if not line.startswith('--- '):
+            self._command()
+            return
+
+        self.changes = []
+        self.old_line = -1
+        self.new_line = -1
+
+        self.old_file = line.split(' ', 1)[1]
+        self.old_file = self.old_file.split('\t', 1)[0]
+        self.old_file = fix_path(self.old_file.rstrip(), prefix_map)
+
+        self.state = self.TARGET
+
+    def _target(self, line, result, source_dir, prefix_map):
+        if not line.startswith('+++ '):
+            self._invalid_diff()
+
+        self.prior_preprends = 0
+        self.new_file = line.split(' ', 1)[1]
+        self.new_file = self.new_file.split('\t', 1)[0]
+        self.new_file = fix_path(self.new_file.rstrip(), prefix_map)
+        if self.old_file != self.new_file:
+            if self.old_file == '/dev/null':
+                self.old_file = self.new_file
+            elif self.new_file == '/dev/null':
+                self.new_file = self.old_file
+        if self.old_file != self.new_file:
+            print(
+                'error: diffed files have different names:\n'
+                f'\t{self.old_file}\n'
+                f'\t{self.new_file}\n'
+                'Did you forget to map a path prefix?',
+                file=sys.stderr
+            )
+            sys.exit(1)
+
+        self.file_data = result.get(self.new_file)
+        if self.file_data is None:
+            self.file_data = FileData(self.new_file, source_dir)
+            # ignore this file, it doesn't have coverage
+
+        self.state = self.HUNK_START
+
+    def _hunk_start(self, line):
+        if not line.startswith('@@ '):
+            self._invalid_diff()
+
+        self.prior_preprends = 0
+        _, old_range, new_range, _ = line.split(' ', 3)
+        if old_range[0] != '-' or new_range[0] != '+':
+            self._invalid_diff()
+
+        old_range = [int(x) for x in old_range[1:].split(',')]
+        if len(old_range) > 1:
+            self.old_line, self.old_count = old_range
+        else:
+            self.old_line = old_range[0]
+            self.old_count = 1
+
+        new_range = [int(x) for x in new_range[1:].split(',')]
+        if len(new_range) > 1:
+            self.new_line, self.new_count = new_range
+        else:
+            self.new_line = new_range[0]
+            self.new_count = 1
+        self.new_line = self.new_line or 1
+
+        self.state = self.HUNK
+
+    def _hunk(self, line):
+        if line.startswith(' '):
+            self.prior_preprends = 0
+            self.old_line += 1
+            self.new_line += 1
+            self.old_count -= 1
+            self.new_count -= 1
+        elif line.startswith('-'):
+            self.prior_preprends += 1
+            self.changes.append(
+                ('prepend', self.new_line, self.old_line, line[1:])
+            )
+            self.old_line += 1
+            self.old_count -= 1
+        elif line.startswith('+'):
+            if self.prior_preprends:
+                assert self.prior_preprends > 0
+                change = self.changes[-self.prior_preprends]
+                assert change[0] == 'prepend'
+                self.changes[-self.prior_preprends] = (
+                    'modify', self.new_line, change[2], change[3],
+                )
+                self.prior_preprends -= 1
+                for i in range(self.prior_preprends, 0, -1):
+                    c = list(self.changes[-i])
+                    c = [c[0], c[1] + 1]  + c[2:]
+                    self.changes[-i] = tuple(c)
+            else:
+                self.changes.append(
+                    ('remove', self.new_line, self.old_line)
+                )
+            self.new_line += 1
+            self.new_count -= 1
+
+        if self.new_count == 0 and self.old_count == 0:
+            self.state = self.HUNK_OR_FILE_START
+
+    @staticmethod
+    def _invalid_diff():
+        print('error: invalid diff file', file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
