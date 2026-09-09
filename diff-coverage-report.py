@@ -249,7 +249,15 @@ def parse_diff(lines, result, source_dir, prefix_map):
 
     prior_preprends = 0
     for l in lines:
-        if l.startswith('--- '):
+        # While inside a hunk (announced counts not yet consumed), every
+        # line is content prefixed with ' ', '-' or '+'. Removed content
+        # that itself starts with '-- ' (e.g. a Lua comment) would
+        # otherwise be mistaken for a '--- ' file header (and similarly
+        # for '+++ ' and '@@ '), so skip header detection until the hunk
+        # is fully consumed.
+        in_hunk = old_count > 0 or new_count > 0
+
+        if not in_hunk and l.startswith('--- '):
             prior_preprends = 0
             commit()
             changes = []
@@ -260,7 +268,7 @@ def parse_diff(lines, result, source_dir, prefix_map):
             old_file = old_file.split('\t', 1)[0]
             old_file = fix_path(old_file.rstrip(), prefix_map)
 
-        elif l.startswith('+++ '):
+        elif not in_hunk and l.startswith('+++ '):
             prior_preprends = 0
             new_file = l.split(' ', 1)[1]
             new_file = new_file.split('\t', 1)[0]
@@ -285,7 +293,7 @@ def parse_diff(lines, result, source_dir, prefix_map):
                 file_data = FileData(new_file, source_dir)
                 # ignore this file, it doesn't have coverage
 
-        elif l.startswith('@@ '):
+        elif not in_hunk and l.startswith('@@ '):
             prior_preprends = 0
             _, old_range, new_range, _ = l.split(' ', 3)
             assert old_range[0] == '-'
